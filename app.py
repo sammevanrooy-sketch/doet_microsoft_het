@@ -37,8 +37,8 @@ def check_endpoints():
     return all_up, results
 
 def check_rss_incidents():
-    outlook_desc = ""
-    teams_desc = ""
+    outlook_msg = ""
+    teams_msg = ""
     all_incidents = []
     has_incident = False
 
@@ -53,25 +53,25 @@ def check_rss_incidents():
                     full_text = (title + " " + desc).lower()
                     
                     if full_text and "resolved" not in full_text and "restored" not in full_text:
-                        all_incidents.append(f"**{service} - {title}:** {desc}")
+                        all_incidents.append(f"**{service}:** {title}")
                         has_incident = True
                         
-                        # Koppel de beschrijving aan Outlook of Teams als het daarover gaat
+                        # Koppel specifieke storingen aan Outlook of Teams
                         if "outlook" in full_text or "exchange" in full_text or "microsoft 365" in full_text:
-                            outlook_desc = desc if desc else title
+                            outlook_msg = title
                         if "teams" in full_text:
-                            teams_desc = desc if desc else title
+                            teams_msg = title
         except Exception:
             pass
             
-    return all_incidents, outlook_desc, teams_desc, has_incident
+    return all_incidents, outlook_msg, teams_msg, has_incident
 
 # UI Opbouw
 st.markdown("<h1 style='text-align: center;'>Doet Microsoft het al?</h1>", unsafe_allow_html=True)
 
 with st.spinner("Status controleren..."):
     endpoints_ok, endpoint_details = check_endpoints()
-    incidents, outlook_desc, teams_desc, has_incident = check_rss_incidents()
+    incidents, outlook_msg, teams_msg, has_incident = check_rss_incidents()
 
 st.divider()
 
@@ -103,28 +103,28 @@ else:
 
 st.write("")
 
-# Specifieke statuskaarten met de echte storingsdetails erin
+# Specifieke statuskaarten met eventuele storingsmelding erin verwerkt
 col1, col2 = st.columns(2)
 
 with col1:
     if not endpoints_ok:
         st.error("📧 **Outlook:** Offline")
-    elif outlook_desc:
-        st.warning(f"📧 **Outlook Melding:**\n\n{outlook_desc}")
+    elif outlook_msg:
+        st.warning(f"📧 **Outlook Melding:**\n\n{outlook_msg}")
     else:
         st.success("📧 **Outlook:** Werkt")
 
 with col2:
     if not endpoints_ok:
         st.error("💬 **Teams:** Offline")
-    elif teams_desc:
-        st.warning(f"💬 **Teams Melding:**\n\n{teams_desc}")
+    elif teams_msg:
+        st.warning(f"💬 **Teams Melding:**\n\n{teams_msg}")
     else:
         st.success("💬 **Teams:** Werkt")
 
 st.write("")
 
-# Details uitklapbaar maken met alle volledige meldingen
+# Details uitklapbaar maken
 with st.expander("Bekijk technische details & meldingen"):
     st.subheader("Directe server-checks")
     for name, (is_up, status_text) in endpoint_details.items():
