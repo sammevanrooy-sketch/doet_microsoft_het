@@ -37,9 +37,9 @@ def check_endpoints():
     return all_up, results
 
 def check_rss_incidents():
-    active_incidents = []
-    outlook_incident = False
-    teams_incident = False
+    outlook_msg = ""
+    teams_msg = ""
+    all_incidents = []
     has_incident = False
 
     for service, url in RSS_FEEDS.items():
@@ -53,22 +53,25 @@ def check_rss_incidents():
                     full_text = (title + " " + desc).lower()
                     
                     if full_text and "resolved" not in full_text and "restored" not in full_text:
-                        active_incidents.append(f"**{service}:** {title}")
+                        all_incidents.append(f"**{service}:** {title}")
                         has_incident = True
-                        if "outlook" in full_text or "exchange" in full_text:
-                            outlook_incident = True
+                        
+                        # Koppel specifieke storingen aan Outlook of Teams
+                        if "outlook" in full_text or "exchange" in full_text or "microsoft 365" in full_text:
+                            outlook_msg = title
                         if "teams" in full_text:
-                            teams_incident = True
+                            teams_msg = title
         except Exception:
             pass
-    return active_incidents, outlook_incident, teams_incident, has_incident
+            
+    return all_incidents, outlook_msg, teams_msg, has_incident
 
 # UI Opbouw
 st.markdown("<h1 style='text-align: center;'>Doet Microsoft het al?</h1>", unsafe_allow_html=True)
 
 with st.spinner("Status controleren..."):
     endpoints_ok, endpoint_details = check_endpoints()
-    incidents, outlook_inc, teams_inc, has_incident = check_rss_incidents()
+    incidents, outlook_msg, teams_msg, has_incident = check_rss_incidents()
 
 st.divider()
 
@@ -85,7 +88,7 @@ elif endpoints_ok and has_incident:
     st.markdown(
         "<div style='background-color: #4a3511; padding: 40px; border-radius: 15px; text-align: center;'>"
         "<h1 style='color: #fbbf24; font-size: 65px; margin: 0;'>DEELS</h1>"
-        "<p style='color: #fef3c7; font-size: 18px; margin-top: 10px;'>Servers bereikbaar, maar Microsoft meldt een vertraging/incident.</p>"
+        "<p style='color: #fef3c7; font-size: 18px; margin-top: 10px;'>Servers bereikbaar, maar Microsoft meldt actieve incidenten.</p>"
         "</div>",
         unsafe_allow_html=True
     )
@@ -100,22 +103,22 @@ else:
 
 st.write("")
 
-# Specifieke statuskaarten voor Outlook en Teams
+# Specifieke statuskaarten met eventuele storingsmelding erin verwerkt
 col1, col2 = st.columns(2)
 
 with col1:
     if not endpoints_ok:
         st.error("📧 **Outlook:** Offline")
-    elif outlook_inc:
-        st.warning("📧 **Outlook:** Melding / Storing")
+    elif outlook_msg:
+        st.warning(f"📧 **Outlook Melding:**\n\n{outlook_msg}")
     else:
         st.success("📧 **Outlook:** Werkt")
 
 with col2:
     if not endpoints_ok:
         st.error("💬 **Teams:** Offline")
-    elif teams_inc:
-        st.warning("💬 **Teams:** Melding / Storing")
+    elif teams_msg:
+        st.warning(f"💬 **Teams Melding:**\n\n{teams_msg}")
     else:
         st.success("💬 **Teams:** Werkt")
 
