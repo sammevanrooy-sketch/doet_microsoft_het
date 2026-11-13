@@ -9,7 +9,7 @@ st.set_page_config(page_title="Doet Microsoft het al?", page_icon="🖥️", lay
 # Automatisch verversen elke 30 seconden
 st_autorefresh(interval=30000, key="statusrefresh")
 
-# Alleen de stabiele hoofdportalen pingen (geen strenge Exchange-backend die blokkeert)
+# Stabiele hoofdportalen pingen
 ENDPOINTS = {
     "Microsoft Login (Entra ID)": "https://login.microsoftonline.com",
     "Microsoft 365 Portal": "https://portal.office.com",
@@ -38,6 +38,8 @@ def check_endpoints():
 
 def check_rss_incidents():
     active_incidents = []
+    outlook_incident = False
+    teams_incident = False
     has_incident = False
 
     for service, url in RSS_FEEDS.items():
@@ -47,24 +49,30 @@ def check_rss_incidents():
                 root = ET.fromstring(response.content)
                 for item in root.findall(".//item"):
                     title = item.find("title").text if item.find("title") is not None else ""
-                    title_lower = title.lower()
-                    if title and "resolved" not in title_lower and "restored" not in title_lower:
+                    desc = item.find("description").text if item.find("description") is not None else ""
+                    full_text = (title + " " + desc).lower()
+                    
+                    if full_text and "resolved" not in full_text and "restored" not in full_text:
                         active_incidents.append(f"**{service}:** {title}")
                         has_incident = True
+                        if "outlook" in full_text or "exchange" in full_text:
+                            outlook_incident = True
+                        if "teams" in full_text:
+                            teams_incident = True
         except Exception:
             pass
-    return active_incidents, has_incident
+    return active_incidents, outlook_incident, teams_incident, has_incident
 
 # UI Opbouw
 st.markdown("<h1 style='text-align: center;'>Doet Microsoft het al?</h1>", unsafe_allow_html=True)
 
 with st.spinner("Status controleren..."):
     endpoints_ok, endpoint_details = check_endpoints()
-    incidents, has_incident = check_rss_incidents()
+    incidents, outlook_inc, teams_inc, has_incident = check_rss_incidents()
 
 st.divider()
 
-# Logica: Als de servers draaien, is het JA. Tenzij Microsoft zelf een storing meldt -> DEELS
+# Grote JA / DEELS / NEE weergave
 if endpoints_ok and not has_incident:
     st.markdown(
         "<div style='background-color: #1e4620; padding: 40px; border-radius: 15px; text-align: center;'>"
@@ -89,6 +97,27 @@ else:
         "</div>",
         unsafe_allow_html=True
     )
+
+st.write("")
+
+# Specifieke statuskaarten voor Outlook en Teams
+col1, col2 = st.columns(2)
+
+with col1:
+    if not endpoints_ok:
+        st.error("📧 **Outlook:** Offline")
+    elif outlook_inc:
+        st.warning("📧 **Outlook:** Melding / Storing")
+    else:
+        st.success("📧 **Outlook:** Werkt")
+
+with col2:
+    if not endpoints_ok:
+        st.error("💬 **Teams:** Offline")
+    elif teams_inc:
+        st.warning("💬 **Teams:** Melding / Storing")
+    else:
+        st.success("💬 **Teams:** Werkt")
 
 st.write("")
 
