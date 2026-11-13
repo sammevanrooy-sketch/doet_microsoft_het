@@ -9,11 +9,10 @@ st.set_page_config(page_title="Doet Microsoft het al?", page_icon="🖥️", lay
 # Automatisch verversen elke 30 seconden
 st_autorefresh(interval=30000, key="statusrefresh")
 
-# Endpoints om direct te pingen
+# Endpoints gericht op de app-achterkant (Exchange/Outlook app backend)
 ENDPOINTS = {
     "Microsoft Login (Entra ID)": "https://login.microsoftonline.com",
-    "Microsoft 365 Portal": "https://portal.office.com",
-    "Outlook Web": "https://outlook.office.com",
+    "Outlook App & Exchange Server": "https://outlook.office365.com",
     "Microsoft Teams": "https://teams.microsoft.com",
     "Microsoft Statuspagina": "https://status.cloud.microsoft"
 }
@@ -29,8 +28,10 @@ def check_endpoints():
     all_up = True
     for name, url in ENDPOINTS.items():
         try:
-            response = requests.get(url, timeout=5)
-            is_up = response.status_code < 400
+            # We gebruiken allow_redirects en timeout
+            response = requests.get(url, timeout=5, allow_redirects=True)
+            # < 500 betekent dat de server leeft (zelfs een 401 Unauthorized betekent dat de server online is!)
+            is_up = response.status_code < 500
             results[name] = (is_up, f"HTTP {response.status_code}")
             if not is_up:
                 all_up = False
@@ -76,7 +77,7 @@ if endpoints_ok and not incidents:
     st.markdown(
         "<div style='background-color: #1e4620; padding: 40px; border-radius: 15px; text-align: center;'>"
         "<h1 style='color: #4ade80; font-size: 80px; margin: 0;'>JA</h1>"
-        "<p style='color: #dcfce7; font-size: 18px; margin-top: 10px;'>Alle gecontroleerde services zijn bereikbaar en er zijn geen actieve meldingen.</p>"
+        "<p style='color: #dcfce7; font-size: 18px; margin-top: 10px;'>De servers voor de Outlook-app en Teams zijn bereikbaar.</p>"
         "</div>",
         unsafe_allow_html=True
     )
@@ -84,7 +85,7 @@ elif not endpoints_ok:
     st.markdown(
         "<div style='background-color: #4c1d1d; padding: 40px; border-radius: 15px; text-align: center;'>"
         "<h1 style='color: #f87171; font-size: 80px; margin: 0;'>NEE</h1>"
-        "<p style='color: #fee2e2; font-size: 18px; margin-top: 10px;'>Een of meer essentiële Microsoft-servers reageren niet.</p>"
+        "<p style='color: #fee2e2; font-size: 18px; margin-top: 10px;'>De mail- of inlogservers van Microsoft reageren niet.</p>"
         "</div>",
         unsafe_allow_html=True
     )
@@ -99,20 +100,20 @@ else:
 
 st.write("")
 
-# Specifieke statuskaarten voor Outlook en Teams
+# Specifieke statuskaarten voor Outlook App en Teams
 login_up = endpoint_details["Microsoft Login (Entra ID)"][0]
-outlook_up = endpoint_details["Outlook Web"][0] and login_up
+outlook_app_up = endpoint_details["Outlook App & Exchange Server"][0] and login_up
 teams_up = endpoint_details["Microsoft Teams"][0] and login_up
 
 col1, col2 = st.columns(2)
 
 with col1:
-    if not outlook_up:
-        st.error("📧 **Outlook:** Offline")
+    if not outlook_app_up:
+        st.error("📧 **Outlook App:** Offline")
     elif outlook_inc:
-        st.warning("📧 **Outlook:** Mogelijke storing")
+        st.warning("📧 **Outlook App:** Mogelijke storing")
     else:
-        st.success("📧 **Outlook:** Werkt")
+        st.success("📧 **Outlook App:** Werkt")
 
 with col2:
     if not teams_up:
@@ -126,7 +127,7 @@ st.write("")
 
 # Details uitklapbaar maken
 with st.expander("Bekijk technische details & meldingen"):
-    st.subheader("Directe server-checks")
+    st.subheader("Directe server-checks (App Backend)")
     for name, (is_up, status_text) in endpoint_details.items():
         icon = "🟢" if is_up else "🔴"
         st.write(f"{icon} **{name}** — `{status_text}`")
